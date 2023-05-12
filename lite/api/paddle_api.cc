@@ -524,8 +524,11 @@ void CxxConfig::set_xpu_gm_workspace_method(size_t gm_size) {
 #ifdef LITE_WITH_XPU
   reinterpret_cast<lite::XPURunTimeOption *>(
       target_configs()[TARGET(kXPU)].get())
-      ->xpu_local_gm_size = gm_size;
+      ->xpu_local_gm_size = gm_size; //
+  std::cout << "=====> lkk set_xpu_gm_workspace_method: " << gm_size << std::endl;
 #else
+
+  std::cout << "=====> lkk set_xpu_gm_workspace_method is ignored" << std::endl;
   LOG(WARNING) << "The invoking of the function "
                   "'set_xpu_gm_workspace_method' is ignored, please "
                   "rebuild it with LITE_WITH_XPU=ON.";

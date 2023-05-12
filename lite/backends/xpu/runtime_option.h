@@ -125,7 +125,7 @@ struct XPURunTimeOption {
   void Set(const XPURunTimeOption* config) {
     xpu_local_l3_size = config->xpu_local_l3_size;
     xpu_local_l3_autotune = config->xpu_local_l3_autotune;
-    xpu_local_gm_size = config->xpu_local_gm_size;
+    xpu_local_gm_size = config->xpu_local_gm_size; //
     xpu_cluster_num = config->xpu_cluster_num;
     xpu_sdnn_num = config->xpu_sdnn_num;
     xpu_enable_multi_stream = config->xpu_enable_multi_stream;

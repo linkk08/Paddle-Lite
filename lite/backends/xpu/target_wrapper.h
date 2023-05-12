@@ -159,13 +159,19 @@ class TargetWrapper<TARGET(kXPU)> {
         if (old_ptr != nullptr) {
           TargetWrapperXPU::Free(old_ptr);
         }
+        auto gm_size = xpu_runtime_ptr->xpu_tls_raw_ctx->GetXDNNContext()->_gm_mgr.get_size();
+        std::cout << " ====> lkk gm Size: " << gm_size << std::endl;
         ret = xpu_runtime_ptr->xpu_tls_raw_ctx->GetXDNNContext()->_gm_mgr.set(
-            local_gm_ptr, xpu_runtime_ptr->xpu_local_gm_size);
+            local_gm_ptr, xpu_runtime_ptr->xpu_local_gm_size); // gm set
         if (ret != 0) {
           LOG(WARNING) << "XPU GM Mgr Init Fail, Please Check Configuration.";
+          std::cout << "====> lkk XPU GM Mgr Init Fail, Please Check Configuration." << std::endl;
           TargetWrapperXPU::Free(local_gm_ptr);
           local_gm_ptr = nullptr;
         }
+
+        auto gm_size2 = xpu_runtime_ptr->xpu_tls_raw_ctx->GetXDNNContext()->_gm_mgr.get_size();
+        std::cout << " ====> lkk gm Size2: " << gm_size2 << std::endl;
       }
     }
 
