@@ -54,12 +54,266 @@ class XPUMultiUpDecoderFusePass : public FuseBase {
     all_inputs_map_["AllUpDecoderPostConvInputMax"] = {};
     all_inputs_map_["LastGNScale"] = {};
     all_inputs_map_["LastGNBias"] = {};
+    
+    all_inputs_map_["ResblockConvBias"] = {};
+    all_inputs_map_["ResblockConvFilter"] = {};
+    all_inputs_map_["ResblockGNScale"] = {};
+    all_inputs_map_["ResblockGNBias"] = {};
+    all_inputs_map_["ResblockInputMax"] = {};
+    all_inputs_map_["PostConvFilter"] = {};
+    all_inputs_map_["PostConvBias"] = {};
+    all_inputs_map_["PostConvInputMax"] = {};
+    all_resblocks_op_keys_.clear();
 
     all_up_decoders_op_keys_.clear();
   }
 
-  NodeContainer BuildSingleUpDecoder(int op_pos,
-                                     int num_resblock,
+  NodeContainer BuildSingleResblock(int op_pos) {
+    // op_pos ranges from 0 to N;
+    // 0: begining op; not zero: intermediate op;
+    // Single resblock inputs
+    std::map<std::string, PMNode*> input_nodes;
+    std::map<std::string, PMNode*> op_node;
+    std::map<std::string, PMNode*> output_nodes;
+    NodeContainer nodes_pack;
+    PMNode* input_1 = nullptr;
+    PMNode* input_max = nullptr;
+    if (op_pos == 0) {
+      all_inputs_map_["Input"].push_back("input_1_" + to_string(op_pos));
+      input_1 = VarNode("input_1_" + to_string(op_pos))
+                    ->assert_is_op_input("__xpu__spatial_transformer_resblock",
+                                         "Input1")
+                    ->AsInput();
+      if (first_resblock_has_input_max_) {
+        all_inputs_map_["ResblockInputMax"].push_back("input_max_" +
+                                                      to_string(op_pos));
+        input_max = VarNode("input_max_" + to_string(op_pos))
+                        ->assert_is_op_input(
+                            "__xpu__spatial_transformer_resblock", "InputMax")
+                        ->AsInput();
+      }
+    }
+    all_inputs_map_["ResblockConvBias"].push_back("conv_bias_0_" +
+                                                  to_string(op_pos));
+    PMNode* conv_bias_0 =
+        VarNode("conv_bias_0_" + to_string(op_pos))
+            ->assert_is_op_nth_input(
+                "__xpu__spatial_transformer_resblock", "ConvBias", 0)
+            ->AsInput();
+    all_inputs_map_["ResblockConvBias"].push_back("conv_bias_1_" +
+                                                  to_string(op_pos));
+    PMNode* conv_bias_1 =
+        VarNode("conv_bias_1_" + to_string(op_pos))
+            ->assert_is_op_nth_input(
+                "__xpu__spatial_transformer_resblock", "ConvBias", 1)
+            ->AsInput();
+    PMNode* conv_bias_2 = nullptr;
+    if (op_pos == 0 && first_resblock_has_input_max_) {
+      all_inputs_map_["ResblockConvBias"].push_back("conv_bias_2_" +
+                                                    to_string(op_pos));
+      conv_bias_2 =
+          VarNode("conv_bias_2_" + to_string(op_pos))
+              ->assert_is_op_nth_input(
+                  "__xpu__spatial_transformer_resblock", "ConvBias", 2)
+              ->AsInput();
+    }
+    all_inputs_map_["ResblockConvFilter"].push_back("conv_filter_0_" +
+                                                    to_string(op_pos));
+    PMNode* conv_filter_0 =
+        VarNode("conv_filter_0_" + to_string(op_pos))
+            ->assert_is_op_nth_input(
+                "__xpu__spatial_transformer_resblock", "ConvFilter", 0)
+            ->AsInput();
+    all_inputs_map_["ResblockConvFilter"].push_back("conv_filter_1_" +
+                                                    to_string(op_pos));
+    PMNode* conv_filter_1 =
+        VarNode("conv_filter_1_" + to_string(op_pos))
+            ->assert_is_op_nth_input(
+                "__xpu__spatial_transformer_resblock", "ConvFilter", 1)
+            ->AsInput();
+    PMNode* conv_filter_2 = nullptr;
+    if (op_pos == 0 && first_resblock_has_input_max_) {
+      all_inputs_map_["ResblockConvFilter"].push_back("conv_filter_2_" +
+                                                      to_string(op_pos));
+      conv_filter_2 =
+          VarNode("conv_filter_2_" + to_string(op_pos))
+              ->assert_is_op_nth_input(
+                  "__xpu__spatial_transformer_resblock", "ConvFilter", 2)
+              ->AsInput();
+    }
+    all_inputs_map_["ResblockGNBias"].push_back("gn_bias_0_" +
+                                                to_string(op_pos));
+    PMNode* gn_bias_0 =
+        VarNode("gn_bias_0_" + to_string(op_pos))
+            ->assert_is_op_nth_input(
+                "__xpu__spatial_transformer_resblock", "GNBias", 0)
+            ->AsInput();
+    all_inputs_map_["ResblockGNBias"].push_back("gn_bias_1_" +
+                                                to_string(op_pos));
+    PMNode* gn_bias_1 =
+        VarNode("gn_bias_1_" + to_string(op_pos))
+            ->assert_is_op_nth_input(
+                "__xpu__spatial_transformer_resblock", "GNBias", 1)
+            ->AsInput();
+    all_inputs_map_["ResblockGNScale"].push_back("gn_scale_0_" +
+                                                 to_string(op_pos));
+    PMNode* gn_scale_0 =
+        VarNode("gn_scale_0_" + to_string(op_pos))
+            ->assert_is_op_nth_input(
+                "__xpu__spatial_transformer_resblock", "GNScale", 0)
+            ->AsInput();
+    all_inputs_map_["ResblockGNScale"].push_back("gn_scale_1_" +
+                                                 to_string(op_pos));
+    PMNode* gn_scale_1 =
+        VarNode("gn_scale_1_" + to_string(op_pos))
+            ->assert_is_op_nth_input(
+                "__xpu__spatial_transformer_resblock", "GNScale", 1)
+            ->AsInput();
+
+    // Single resblock output
+    PMNode* output = VarNode("resblock_output_" + to_string(op_pos))
+                         ->assert_is_op_output(
+                             "__xpu__spatial_transformer_resblock", "Output");
+    if (op_pos == (num_resblocks_ - 1) && has_interp_ == false) {
+      output->AsOutput();
+    } else {
+      output->AsIntermediate(); // czh 尾部或者中间接 interp，output作为临时值
+    }
+
+    // Single block op node
+    PMNode* resblock_op = OpNode("resblock_op_" + to_string(op_pos),
+                                 "__xpu__spatial_transformer_resblock")
+                              ->AsIntermediate();
+    all_resblocks_op_keys_.push_back("resblock_op_" + to_string(op_pos));
+    input_nodes["input_1"] = input_1;
+    input_nodes["conv_bias_0"] = conv_bias_0;
+    input_nodes["conv_bias_1"] = conv_bias_1;
+    input_nodes["conv_bias_2"] = conv_bias_2;
+    input_nodes["conv_filter_0"] = conv_filter_0;
+    input_nodes["conv_filter_1"] = conv_filter_1;
+    input_nodes["conv_filter_2"] = conv_filter_2;
+    input_nodes["gn_bias_0"] = gn_bias_0;
+    input_nodes["gn_bias_1"] = gn_bias_1;
+    input_nodes["gn_scale_0"] = gn_scale_0;
+    input_nodes["gn_scale_1"] = gn_scale_1;
+    if (first_resblock_has_input_max_) {
+      input_nodes["input_max"] = input_max;
+    }
+
+    output_nodes["output"] = output;
+    op_node["resblock_op"] = resblock_op;
+
+    nodes_pack.emplace_back(input_nodes);
+    nodes_pack.emplace_back(output_nodes);
+    nodes_pack.emplace_back(op_node);
+
+    return nodes_pack;
+  }
+
+
+  NodeContainer BuildSingleUpDecoder1(int op_pos, // 第几个updecoder
+                                     int num_resblock, // 该updecoder里面有多少个resblock
+                                     bool has_post_interp_conv,
+                                     bool has_post_interp_conv_input_max,
+                                     bool has_input_max){
+    ///////////////////////////////// =========> czh 连接多个resbolck
+    for (int i = 0; i < num_resblock; i++) {
+      resblocks.push_back(BuildSingleResblock(i));
+    }
+    // Build reesblock sequence.
+    for (int i = 0; i < resblocks.size(); i++) {
+      std::vector<PMNode*> single_resblock_inputs = {
+          resblocks[i][0]["conv_bias_0"],
+          resblocks[i][0]["conv_bias_1"],
+          resblocks[i][0]["conv_filter_0"],
+          resblocks[i][0]["conv_filter_1"],
+          resblocks[i][0]["gn_bias_0"],
+          resblocks[i][0]["gn_bias_1"],
+          resblocks[i][0]["gn_scale_0"],
+          resblocks[i][0]["gn_scale_1"],
+      };
+      if (i == 0) {
+        single_resblock_inputs.push_back(resblocks[i][0]["input_1"]);
+        if (first_resblock_has_input_max_) {
+          single_resblock_inputs.push_back(resblocks[i][0]["input_max"]);
+          single_resblock_inputs.push_back(resblocks[i][0]["conv_filter_2"]);
+          single_resblock_inputs.push_back(resblocks[i][0]["conv_bias_2"]);
+        }
+      } else {
+        single_resblock_inputs.push_back(resblocks[i - 1][1]["output"]); //czh 首尾相连
+      }
+
+      PMNode* single_resblock_output = resblocks[i][1]["output"];
+      PMNode* single_resblock_op = resblocks[i][2]["resblock_op"];
+      single_resblock_inputs >> *single_resblock_op >> *single_resblock_output;
+    }
+    ///////////////////////////////// <========= 
+
+    // czh 下文将neareast_interp_op 和 conv2d 融进来
+    PMNode* post_interp_op = nullptr;
+    PMNode* post_interp_out = nullptr;
+    PMNode* post_conv_op = nullptr;
+    PMNode* post_conv_input_max = nullptr;
+    PMNode* post_conv_filter = nullptr;
+    PMNode* post_conv_bias = nullptr;
+    PMNode* post_conv_out = nullptr;
+    PMNode* post_conv_out_max = nullptr;
+
+    if (has_interp_) {
+      post_interp_op =
+          OpNode("post_interp", "nearest_interp_v2")->AsIntermediate();
+      post_interp_out = VarNode("post_interp_out")
+                            ->assert_is_op_output("nearest_interp_v2", "Out");
+      if (post_interp_conv_) {
+        post_interp_out->AsIntermediate();
+      } else {
+        post_interp_out->AsOutput();
+      }
+      *resblocks[num_resblock - 1][1]["output"] >> *post_interp_op >>
+          *post_interp_out;
+      if (post_interp_conv_) {
+        post_conv_op = OpNode("post_conv", "__xpu__conv2d")->AsIntermediate();
+        post_conv_filter = VarNode("post_conv_filter")
+                               ->assert_is_op_input("__xpu__conv2d", "Filter")
+                               ->AsInput();
+        post_conv_bias = VarNode("post_conv_bias")
+                             ->assert_is_op_input("__xpu__conv2d", "Bias")
+                             ->AsInput();
+        post_conv_out_max =
+            VarNode("post_conv_out_max")
+                ->assert_is_op_output("__xpu__conv2d", "OutputMax")
+                ->AsOutput();
+        post_conv_out = VarNode("post_conv_out")
+                            ->assert_is_op_output("__xpu__conv2d", "Output")
+                            ->AsOutput();
+        all_inputs_map_["PostConvFilter"].push_back("post_conv_filter");
+        all_inputs_map_["PostConvBias"].push_back("post_conv_bias");
+
+        std::vector<PMNode*> post_conv_inputs = {
+            post_interp_out, post_conv_filter, post_conv_bias};
+        std::vector<PMNode*> post_conv_outputs = {post_conv_out,
+                                                  post_conv_out_max};
+        if (post_interp_conv_input_max_) {
+          post_conv_input_max =
+              VarNode("post_conv_input_max")
+                  ->assert_is_op_input("__xpu__conv2d", "InputMax")
+                  ->AsInput();
+          post_conv_inputs.push_back(post_conv_input_max);
+          all_inputs_map_["PostConvInputMax"].push_back("post_conv_input_max");
+        }
+        post_conv_inputs >> *post_conv_op >> post_conv_outputs;
+      }
+    }
+
+    nodes_pack.emplace_back(single_resblock_inputs);
+    nodes_pack.emplace_back(post_conv_outputs);
+    nodes_pack.emplace_back(op_node);
+    return nodes_pack;
+  }
+
+
+  NodeContainer BuildSingleUpDecoder(int op_pos, // 第几个updecoder
+                                     int num_resblock, // 该updecoder里面有多少个resblock
                                      bool has_post_interp_conv,
                                      bool has_post_interp_conv_input_max,
                                      bool has_input_max) {
@@ -79,8 +333,8 @@ class XPUMultiUpDecoderFusePass : public FuseBase {
         has_input_max ? num_resblock * 2 + 1 : num_resblock * 2;
     int num_resblock_gn = num_resblock * 2;
 
-    // Single up_decoder inputs
-    if (op_pos == 0) {
+    // Single up_decoder inputs // 第一个，有input
+    if (op_pos == 0) { 
       input_1 = VarNode("input_1_" + to_string(op_pos))
                     ->assert_is_op_input("__xpu__up_decoder", "Input")
                     ->AsInput();
@@ -168,7 +422,7 @@ class XPUMultiUpDecoderFusePass : public FuseBase {
       input_nodes["resblock_gn_bias_" + to_string(i)] = resblock_gn_bias;
     }
 
-    // Single up_decoder output
+    // Single up_decoder output 最后一个，设置output
     PMNode* output = VarNode("output_" + to_string(op_pos))
                          ->assert_is_op_output("__xpu__up_decoder", "Output");
     if (op_pos == (num_up_decoders_ - 1) && has_last_gn_silu_ == false) {
@@ -202,7 +456,7 @@ class XPUMultiUpDecoderFusePass : public FuseBase {
           has_post_interp_conv_input_max_per_up_decoder_[i],
           has_input_max_per_up_decoder_[i]));
     }
-    for (int i = 0; i < up_decoders.size(); ++i) {
+    for (int i = 0; i < up_decoders.size(); ++i) { // czh 首尾相连
       std::vector<PMNode*> single_up_decoder_inputs;
       for (auto ele : up_decoders[i][0]) {
         if (ele.second != nullptr) {
@@ -482,6 +736,14 @@ class XPUMultiUpDecoderFusePass : public FuseBase {
   std::map<std::string, std::vector<std::string>> all_inputs_map_;
   std::vector<std::string> all_up_decoders_op_keys_;
   bool has_last_gn_silu_;
+
+  // czh
+  int num_resblocks_;
+  bool has_interp_;
+  bool post_interp_conv_;
+  bool post_interp_conv_input_max_;
+  bool first_resblock_has_input_max_;
+  std::vector<std::string> all_resblocks_op_keys_;
 };
 }  // namespace fusion
 
@@ -516,7 +778,7 @@ class XPUMultiUpDecoderFusePass : public ProgramPass {
   // TODO(shenyijun01): Currently, the multi-up--decoder op will be fused by
   // fixed pattern with fixed num of up-decoders.
   const std::vector<std::vector<int>> num_resblock_per_up_decoder = {
-      {4, 3, 3, 3, 3}, {4, 3, 3, 3}};
+      {4, 3, 3, 3, 3}, {4, 3, 3, 3}}; 
   const std::vector<std::vector<bool>> has_post_interp_conv_per_up_decoder = {
       {true, true, true, true, false}, {true, true, true, false}};
   const std::vector<std::vector<bool>>
@@ -526,8 +788,8 @@ class XPUMultiUpDecoderFusePass : public ProgramPass {
       {false, false, false, true, true}, {false, false, true, true}};
 
   void Apply(const std::unique_ptr<SSAGraph>& graph) override {
-    for (int i = 0; i < num_resblock_per_up_decoder.size(); ++i) {
-      const int num_up_decoder =
+    for (int i = 0; i < num_resblock_per_up_decoder.size(); ++i) { // czh 合两大组 up decoder
+      const int num_up_decoder = // czh 每大组包含的up_decoder个数
           static_cast<int>(num_resblock_per_up_decoder[i].size());
       CHECK_EQ(num_up_decoder,
                static_cast<int>(has_post_interp_conv_per_up_decoder[i].size()));
@@ -539,7 +801,7 @@ class XPUMultiUpDecoderFusePass : public ProgramPass {
       for (auto has_last_gn_silu : {true, false}) {
         fusion::XPUMultiUpDecoderFusePass fuser(
             num_up_decoder,
-            num_resblock_per_up_decoder[i],
+            num_resblock_per_up_decoder[i], // czh 每组up decoder 包含的 resblock 个数
             has_post_interp_conv_per_up_decoder[i],
             has_post_interp_conv_input_max_per_up_decoder[i],
             has_input_max_per_up_decoder[i],

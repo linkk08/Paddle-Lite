@@ -50,6 +50,7 @@ class XPUUpDecoderFuser : public FuseBase {
     all_resblocks_op_keys_.clear();
   }
 
+  // czh 描述 input output op
   NodeContainer BuildSingleResblock(int op_pos) {
     // op_pos ranges from 0 to N;
     // 0: begining op; not zero: intermediate op;
@@ -159,7 +160,7 @@ class XPUUpDecoderFuser : public FuseBase {
     if (op_pos == (num_resblocks_ - 1) && has_interp_ == false) {
       output->AsOutput();
     } else {
-      output->AsIntermediate();
+      output->AsIntermediate(); // czh 尾部或者中间接 interp，output作为临时值
     }
 
     // Single block op node
@@ -194,6 +195,8 @@ class XPUUpDecoderFuser : public FuseBase {
 
   void BuildPattern() override {
     std::vector<NodeContainer> resblocks;
+
+    ///////////////////////////////// =========> czh 连接多个resbolck
     for (int i = 0; i < num_resblocks_; i++) {
       resblocks.push_back(BuildSingleResblock(i));
     }
@@ -217,13 +220,16 @@ class XPUUpDecoderFuser : public FuseBase {
           single_resblock_inputs.push_back(resblocks[i][0]["conv_bias_2"]);
         }
       } else {
-        single_resblock_inputs.push_back(resblocks[i - 1][1]["output"]);
+        single_resblock_inputs.push_back(resblocks[i - 1][1]["output"]); //czh 首尾相连
       }
 
       PMNode* single_resblock_output = resblocks[i][1]["output"];
       PMNode* single_resblock_op = resblocks[i][2]["resblock_op"];
       single_resblock_inputs >> *single_resblock_op >> *single_resblock_output;
     }
+    ///////////////////////////////// <========= 
+
+    // czh 下文将neareast_interp_op 和 conv2d 融进来
     PMNode* post_interp_op = nullptr;
     PMNode* post_interp_out = nullptr;
     PMNode* post_conv_op = nullptr;
@@ -543,7 +549,7 @@ class XPUUpDecoderFusePass : public ProgramPass {
  public:
   void Apply(const std::unique_ptr<SSAGraph>& graph) override {
     // TODO(shenyijun01): Supporting two inputs will be completed later on.
-    // UpDecoder block only has 3~4 resblocks.
+    // UpDecoder block only has 3~4 resblocks. czh
     for (auto num_resblock : {4, 3}) {
       for (auto first_resblock_has_input_max : {true, false}) {
         for (auto has_interp : {true, false}) {
