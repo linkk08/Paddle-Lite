@@ -444,7 +444,7 @@ class XPUMultiUpDecoderFusePass : public FuseBase {
 
   void BuildPattern() override {
     std::vector<NodeContainer> up_decoders;
-    for (int i = 0; i < num_up_decoders_; ++i) {
+    for (int i = 0; i < num_up_decoders_; ++i) { // czh 首尾相连
       up_decoders.emplace_back(BuildSingleUpDecoder(
           i,
           num_resblock_per_up_decoder_[i],
@@ -452,7 +452,7 @@ class XPUMultiUpDecoderFusePass : public FuseBase {
           has_post_interp_conv_input_max_per_up_decoder_[i],
           has_input_max_per_up_decoder_[i]));
     }
-    for (int i = 0; i < up_decoders.size(); ++i) { // czh 首尾相连
+    for (int i = 0; i < up_decoders.size(); ++i) { 
       std::vector<PMNode*> single_up_decoder_inputs;
       for (auto ele : up_decoders[i][0]) {
         if (ele.second != nullptr) {
