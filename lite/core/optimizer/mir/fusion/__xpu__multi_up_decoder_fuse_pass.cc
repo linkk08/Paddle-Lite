@@ -211,11 +211,12 @@ class XPUMultiUpDecoderFusePass : public FuseBase {
   }
 
 
-  NodeContainer BuildSingleUpDecoder1(int op_pos, // 第几个updecoder
+  NodeContainer BuildSingleUpDecoder1(int op_pos, // 第几个updecoder --> 改成第几个resblock
                                      int num_resblock, // 该updecoder里面有多少个resblock
                                      bool has_post_interp_conv,
                                      bool has_post_interp_conv_input_max,
                                      bool has_input_max){
+    std::vector<NodeContainer> resblocks;
     ///////////////////////////////// =========> czh 连接多个resbolck
     for (int i = 0; i < num_resblock; i++) {
       resblocks.push_back(BuildSingleResblock(i));
@@ -303,12 +304,7 @@ class XPUMultiUpDecoderFusePass : public FuseBase {
         }
         post_conv_inputs >> *post_conv_op >> post_conv_outputs;
       }
-    }
-
-    nodes_pack.emplace_back(single_resblock_inputs);
-    nodes_pack.emplace_back(post_conv_outputs);
-    nodes_pack.emplace_back(op_node);
-    return nodes_pack;
+    
   }
 
 
@@ -788,7 +784,7 @@ class XPUMultiUpDecoderFusePass : public ProgramPass {
       {false, false, false, true, true}, {false, false, true, true}};
 
   void Apply(const std::unique_ptr<SSAGraph>& graph) override {
-    for (int i = 0; i < num_resblock_per_up_decoder.size(); ++i) { // czh 合两大组 up decoder
+    for (int i = 0; i < num_resblock_per_up_decoder.size(); ++i) { // czh 艺术化的是 4，3，3，3，3 二次元的是 4，3，3，3
       const int num_up_decoder = // czh 每大组包含的up_decoder个数
           static_cast<int>(num_resblock_per_up_decoder[i].size());
       CHECK_EQ(num_up_decoder,
