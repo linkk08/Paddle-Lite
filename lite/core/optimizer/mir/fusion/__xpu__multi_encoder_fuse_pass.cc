@@ -65,7 +65,7 @@ class XPUSingleEncoderFuser : public FuseBase {
         relative_emb_type_(relative_type),
         with_mask_(with_mask) {}
 
-  void BuildPattern() override {
+  void BuildPattern() override { // singleencoder
     auto* input = VarNode("input")
                       ->assert_is_op_input("elementwise_add", input_pos_)
                       ->AsInput();
@@ -578,8 +578,9 @@ class XPUSingleEncoderFuser : public FuseBase {
                        });
       op_desc.SetOutput("Outputs", {matched.at("qkv_ln_5_out")->arg()->name});
     }
-    // XXX: keep these to fool SubgraphOp::AttachImpl()
+    // XXX: keep these to fool SubgraphOp::AttachImpl() // ？？sub_block 貌似下文没有使用？
     op_desc.SetAttr<int>("sub_block", 0);
+    
     op_desc.SetAttr<std::vector<std::string>>("input_data_names", {});
     op_desc.SetAttr<std::vector<std::string>>("output_data_names", {});
     int hidden_dim = 0;
@@ -652,15 +653,19 @@ class XPUSingleEncoderFuser : public FuseBase {
     }
     op_desc.SetAttr<int>("ffn_hidden_dim_scale", scale_hidden_dim);
 
-    auto fake_subgraph_op = LiteOpRegistry::Global().Create("subgraph");
-    auto sub_program_desc = std::make_shared<cpp::ProgramDesc>();
+    auto fake_subgraph_op = LiteOpRegistry::Global().Create("subgraph");// 创建Op
+    auto sub_program_desc = std::make_shared<cpp::ProgramDesc>(); // 疑问： lite::ProgramDesc? 这里的作用是？
     sub_program_desc->AddBlock<cpp::BlockDesc>();
     static_cast<operators::SubgraphOp*>(fake_subgraph_op.get())
         ->SetProgramDesc(sub_program_desc);
-    auto* single_encoder_stmt = matched.at("q_mul")->stmt();
+    auto* single_encoder_stmt = matched.at("q_mul")->stmt(); // pattern中的第一个OpNode 
+    // 疑问：是否只需要找到已经匹配上的图的第一个Node，拿对一个的scope，就可以拿到整个子图的scope 和 valid_places？
     fake_subgraph_op->Attach(op_desc, single_encoder_stmt->op()->scope());
     fake_subgraph_op->SetValidPlaces(single_encoder_stmt->op()->valid_places());
-    single_encoder_stmt->SetOp(fake_subgraph_op);
+    single_encoder_stmt->SetOp(fake_subgraph_op); // fake op, 疑问：GraphCreateInstructNode 是真实创建一个
+
+    //正常的pass对应下述写法？
+    //auto* new_op_node = graph->GraphCreateInstructNode(fake_subgraph_op, valid_places);
 
     std::vector<std::string> froms = {
         "k_mul_y",
@@ -1689,17 +1694,20 @@ class XPUMultiEncoderFuser {
     }
     return true;
   }
-
-  void operator()(SSAGraph* graph) {
+  
+  // 疑问：operator 在什么时候被调用？ 
+  // operator 里貌似包含了InsertNewNode的动作？
+  // 对应的 BuildPattern 貌似在这里不需要做了？如果不需要做的话，怎样判断多个single_encoder相连的情况？
+  void operator()(SSAGraph* graph) { // 重载operator函数，将多个single_encoder连起来？
     while (true) {  // TingShenXD: A temporary workaround for missing fake
                     // single encoder kernel
       std::vector<Node*> all_encoders;
       // if no node linked from all_encoders.back(), search is over
-      for (auto* node : graph->StmtTopologicalOrder()) {
+      for (auto* node : graph->StmtTopologicalOrder()) { // 全图搜索
         CHECK(node->IsStmt());
         if (node->stmt()->op_info()->Type() == "single_encoder") {
           if (all_encoders.empty() ||
-              IsDirectPredecessorOf(all_encoders.back(), node)) {
+              IsDirectPredecessorOf(all_encoders.back(), node)) { //这里判断是否多个single_encoder连接，并返回连接序列
             all_encoders.push_back(node);
           }
         }
@@ -1726,7 +1734,7 @@ class XPUMultiEncoderFuser {
         CHECK_EQ(norm_before_0, norm_before_i);
       }
       std::string mask_name;
-      for (auto* encoder : all_encoders) {
+      for (auto* encoder : all_encoders) { //
         auto* op_info = encoder->stmt()->op_info();
         if (mask_name.empty() && op_info->HasInput("Mask")) {
           mask_name = op_info->Input("Mask").front();
@@ -1754,7 +1762,7 @@ class XPUMultiEncoderFuser {
       std::vector<float> fc_input_max;
       std::vector<std::string> quant_types;
 
-      for (size_t i = 0; i < all_encoders.size(); ++i) {
+      for (size_t i = 0; i < all_encoders.size(); ++i) { // 单个提取, 可以单个
         Node* cur_encoder = all_encoders[i];
         auto* op_info = cur_encoder->stmt()->op_info();
         CHECK(op_info->HasAttr("quant_types")) << "no quant_types attr";
@@ -1780,7 +1788,7 @@ class XPUMultiEncoderFuser {
           auto real_names = op_info->Input(arg_name);
           for (auto name : real_names) {
             auto* arg_node = graph->RetrieveArgument(name);
-            DirectedLink(arg_node, first_encoder);
+            DirectedLink(arg_node, first_encoder); // 疑问，对应buildpattern中的 >> ?
             arg_map[arg_name].push_back(name);
           }
         }
@@ -1814,7 +1822,7 @@ class XPUMultiEncoderFuser {
           to_remove.insert(cur_out);
         }
       }
-      GraphSafeRemoveNodes(graph, to_remove);
+      GraphSafeRemoveNodes(graph, to_remove);// 删除图中的node，对应buildpattern中的AsIntermediate？
       bool skip_quant_op = false;
       CHECK_GT(quant_types.size(), 1);
       for (int i = 1; i < quant_types.size(); ++i) {
@@ -1823,7 +1831,7 @@ class XPUMultiEncoderFuser {
           break;
         }
       }
-
+      // czh 设置 __xpu__multi_encoder 
       cpp::OpDesc op_desc;
       op_desc.SetType("__xpu__multi_encoder");
       op_desc.SetInput("Input", {in_name});

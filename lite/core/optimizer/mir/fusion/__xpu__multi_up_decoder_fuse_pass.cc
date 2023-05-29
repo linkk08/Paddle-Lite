@@ -54,7 +54,8 @@ class XPUMultiUpDecoderFusePass : public FuseBase {
     all_inputs_map_["AllUpDecoderPostConvInputMax"] = {};
     all_inputs_map_["LastGNScale"] = {};
     all_inputs_map_["LastGNBias"] = {};
-    
+
+    all_inputs_map_["ResblockInput"] = {};
     all_inputs_map_["ResblockConvBias"] = {};
     all_inputs_map_["ResblockConvFilter"] = {};
     all_inputs_map_["ResblockGNScale"] = {};
@@ -328,7 +329,7 @@ class XPUMultiUpDecoderFusePass : public FuseBase {
     int num_resblock_conv =
         has_input_max ? num_resblock * 2 + 1 : num_resblock * 2;
     int num_resblock_gn = num_resblock * 2;
-
+ 
     // Single up_decoder inputs // 第一个，有input
     if (op_pos == 0) { 
       input_1 = VarNode("input_1_" + to_string(op_pos))
@@ -764,7 +765,7 @@ Original subgraph:
 Fuse to:
                      Input
                        |
-          __xpu__multi_up_decoder_op
+          __xpu__multi_up_decoder_op // updecoder_1 一个的特例
                        |
                      Output
 */
@@ -774,14 +775,14 @@ class XPUMultiUpDecoderFusePass : public ProgramPass {
   // TODO(shenyijun01): Currently, the multi-up--decoder op will be fused by
   // fixed pattern with fixed num of up-decoders.
   const std::vector<std::vector<int>> num_resblock_per_up_decoder = {
-      {4, 3, 3, 3, 3}, {4, 3, 3, 3}}; 
+      {4, 3, 3, 3, 3}, {4, 3, 3, 3}, {3}}; 
   const std::vector<std::vector<bool>> has_post_interp_conv_per_up_decoder = {
-      {true, true, true, true, false}, {true, true, true, false}};
+      {true, true, true, true, false}, {true, true, true, false}, {false}};
   const std::vector<std::vector<bool>>
       has_post_interp_conv_input_max_per_up_decoder = {
-          {false, false, false, false, false}, {false, false, false, false}};
+          {false, false, false, false, false}, {false, false, false, false}, {false}};
   const std::vector<std::vector<bool>> has_input_max_per_up_decoder = {
-      {false, false, false, true, true}, {false, false, true, true}};
+      {false, false, false, true, true}, {false, false, true, true}, {false}};
 
   void Apply(const std::unique_ptr<SSAGraph>& graph) override {
     for (int i = 0; i < num_resblock_per_up_decoder.size(); ++i) { // czh 艺术化的是 4，3，3，3，3 二次元的是 4，3，3，3
