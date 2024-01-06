@@ -35,7 +35,11 @@ class XDNNContext {
   XDNNContext() {}
   ~XDNNContext() {
     XPU_CALL(xpu_set_device(devid_));
-    xdnn::destroy_context(rawcontext_);
+    if(devid_ == (int)xdnn::kXPU3){
+      delete rawcontext_;
+    } else {
+      xdnn::destroy_context(rawcontext_);
+    }
     VLOG(6) << "Destroy xpu context.";
   }
 
@@ -48,7 +52,11 @@ class XDNNContext {
     CHECK_EQ(cur_dev_id, devid)
         << "XPU context config device id is :" << devid
         << ",but we get current device id is : " << cur_dev_id;
-    rawcontext_ = xdnn::create_context();
+    if(devid==(int)xdnn::kXPU3){
+      rawcontext_ = new xdnn::Context(xdnn::kXPU3);
+    } else {
+      rawcontext_ = xdnn::create_context();
+    }
     devid_ = devid;
   }
 

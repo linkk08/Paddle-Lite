@@ -291,7 +291,7 @@ void XPUMultiEncoderCompute::run_encoder(const T* in, T* out) {
     if (std::is_same<TGEMM, int8_t>::value) {
       CHECK_GT(fc_input_max_.size(), 0);
     }
-    int r = xdnn::transformer_encoder<T, TW, TGEMM>(
+    int r = xft::transformer_encoder<T, TW, TGEMM>(
         ctx.GetRawContext(),
         in,
         *(XPUMultiEncoderCompute::get_weight<TW>()),
@@ -343,7 +343,7 @@ void XPUMultiEncoderCompute::run_encoder(const T* in, T* out) {
     if (std::is_same<TGEMM, int8_t>::value) {
       CHECK_GT(fc_input_max_.size(), 0);
     }
-    int r = xdnn::transformer_encoder<T, TW, TGEMM>(
+    int r = xft::transformer_encoder<T, TW, TGEMM>(
         ctx.GetRawContext(),
         in,
         *(XPUMultiEncoderCompute::get_weight<TW>()),
@@ -394,7 +394,7 @@ void XPUMultiEncoderCompute::run_encoder(const T* in, T* out) {
                                          roformer_embedding_.end());
     }
     qkv_attn_param.scale_of_hidden_units = param.ffn_hidden_dim_scale;
-    int r = xdnn::transformer_encoder<T, TW, TGEMM>(
+    int r = xft::transformer_encoder<T, TW, TGEMM>(
         ctx.GetRawContext(),
         in,
         *(XPUMultiEncoderCompute::get_weight<TW>()),

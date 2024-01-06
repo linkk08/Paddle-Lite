@@ -16,6 +16,7 @@
 
 #include <string>
 #include <vector>
+#include "layers/transformer_encoder.h"
 #include "lite/backends/xpu/xpu_header_sitter.h"
 #include "lite/core/kernel.h"
 #include "lite/core/op_registry.h"
@@ -24,6 +25,8 @@ namespace paddle {
 namespace lite {
 namespace kernels {
 namespace xpu {
+
+namespace xft = baidu::xpu::xft;
 
 class XPUMultiEncoderCompute
     : public KernelLite<TARGET(kXPU), PRECISION(kFloat)> {
