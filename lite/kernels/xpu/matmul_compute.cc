@@ -17,6 +17,7 @@
 #include "lite/backends/xpu/math.h"
 #include "lite/backends/xpu/xpu_header_sitter.h"
 #include "lite/core/op_registry.h"
+#include "cublasLt.h"
 
 namespace paddle {
 namespace lite {
@@ -24,6 +25,7 @@ namespace kernels {
 namespace xpu {
 
 namespace math = paddle::lite::xpu::math;
+namespace xblas = baidu::xpu::xblas;
 
 template <typename TGEMM,
           typename TW,
@@ -146,25 +148,53 @@ void MatMulCompute<TGEMM, TW, DX, DY, PType>::Run() {
         nullptr,                                       // bias
         xdnn::Activation_t::LINEAR);                   // act
   } else {
-    // batch matmul
-    r = xdnn::fc_batched<DX, TW, DY, TGEMM>(
-        ctx.GetRawContext(),                          /* context */
-        mat_dim_a.batch_size_,                        /* batch_size */
-        mat_dim_a.trans_,                             /* TransA */
-        mat_dim_b.trans_,                             /* TransB */
-        mat_dim_a.height_,                            /* M */
-        mat_dim_b.width_,                             /* N */
-        mat_dim_a.width_,                             /* K */
-        param.alpha,                                  /* alpha */
-        x->template data<DX>(),                       /* A */
-        mat_dim_a.stride_,                            /* stride_a */
-        y->template data<TW>(),                       /* B */
-        mat_dim_b.stride_,                            /* stride_b */
-        0.0f,                                         /* beta */
-        out->template mutable_data<DY>(TARGET(kXPU)), /* C */
-        mat_dim_a.height_ * mat_dim_b.width_,         /* stride_c */
-        x_maxptr,                                     /* x_maxptr */
-        w_maxptr);                                    /* w_maxptr */
+    if ((ctx.GetRawContext()->dev().type()==xdnn::kXPU3)
+    && std::is_same<DX, float>::value 
+    && std::is_same<TW, float>::value
+    && std::is_same<DY, float>::value
+    && std::is_same<TGEMM, int16_t>::value) {
+        //float, float, float, int16_t, 0
+       // batch matmul
+        r = xblas::fc_batched<DX, TW, DY, TGEMM, 0>(
+            ctx.GetRawContext(),                          /* context */
+            mat_dim_a.batch_size_,                        /* batch_size */
+            mat_dim_a.trans_,                             /* TransA */
+            mat_dim_b.trans_,                             /* TransB */
+            mat_dim_a.height_,                            /* M */
+            mat_dim_b.width_,                             /* N */
+            mat_dim_a.width_,                             /* K */
+            param.alpha,                                  /* alpha */
+            x->template data<DX>(),                       /* A */
+            mat_dim_a.stride_,                            /* stride_a */
+            y->template data<TW>(),                       /* B */
+            mat_dim_b.stride_,                            /* stride_b */
+            0.0f,                                         /* beta */
+            out->template mutable_data<DY>(TARGET(kXPU)), /* C */
+            mat_dim_a.height_ * mat_dim_b.width_,         /* stride_c */
+            x_maxptr,                                     /* x_maxptr */
+            w_maxptr);                                    /* w_maxptr */
+    } else {
+        // batch matmul
+        r = xdnn::fc_batched<DX, TW, DY, TGEMM>(
+            ctx.GetRawContext(),                          /* context */
+            mat_dim_a.batch_size_,                        /* batch_size */
+            mat_dim_a.trans_,                             /* TransA */
+            mat_dim_b.trans_,                             /* TransB */
+            mat_dim_a.height_,                            /* M */
+            mat_dim_b.width_,                             /* N */
+            mat_dim_a.width_,                             /* K */
+            param.alpha,                                  /* alpha */
+            x->template data<DX>(),                       /* A */
+            mat_dim_a.stride_,                            /* stride_a */
+            y->template data<TW>(),                       /* B */
+            mat_dim_b.stride_,                            /* stride_b */
+            0.0f,                                         /* beta */
+            out->template mutable_data<DY>(TARGET(kXPU)), /* C */
+            mat_dim_a.height_ * mat_dim_b.width_,         /* stride_c */
+            x_maxptr,                                     /* x_maxptr */
+            w_maxptr);                                    /* w_maxptr */
+    }
+    
   }
   CHECK_EQ(r, 0);
 }
