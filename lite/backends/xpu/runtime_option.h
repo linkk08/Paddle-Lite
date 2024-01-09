@@ -19,6 +19,7 @@
 #include <mutex>  //NOLINT
 #include <string>
 #include <vector>
+#include <iostream>
 
 #include "lite/backends/xpu/xpu_header_sitter.h"
 #include "lite/backends/xpu/xpu_l3_cache_block.h"
@@ -35,7 +36,8 @@ class XDNNContext {
   XDNNContext() {}
   ~XDNNContext() {
     XPU_CALL(xpu_set_device(devid_));
-    if(devid_ == (int)xdnn::kXPU3){
+    if(true){ // kl3,暂时写死强制开启
+      std::cout<<"delete Context(xdnn::kXPU3)"<<std::endl;
       delete rawcontext_;
     } else {
       xdnn::destroy_context(rawcontext_);
@@ -48,11 +50,14 @@ class XDNNContext {
 
   void CreatXDNNContext(int devid) {
     int cur_dev_id = -1;
+    uint64_t cur_dev_attr = 0;
     XPU_CALL(xpu_current_device(&cur_dev_id));
+    // XPU_CALL(xpu_device_get_attr(&cur_dev_attr, XPUATTR_MODEL, cur_dev_id)); #在模拟器上不适用
     CHECK_EQ(cur_dev_id, devid)
         << "XPU context config device id is :" << devid
         << ",but we get current device id is : " << cur_dev_id;
-    if(devid==(int)xdnn::kXPU3){
+    if (true || (cur_dev_attr >= 300 && cur_dev_attr < 600)) { // kl3,暂时写死强制开启
+      std::cout << "====use xdnn:kXPU3 new xdnn::Context"<< std::endl;
       rawcontext_ = new xdnn::Context(xdnn::kXPU3);
     } else {
       rawcontext_ = xdnn::create_context();
