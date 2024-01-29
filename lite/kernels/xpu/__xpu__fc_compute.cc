@@ -231,7 +231,7 @@ void XPUFcCompute<TGEMM, TW, DX, DY, PType>::Run() {
         batch_size,
         m_lod);  // per channel weight_max
   } else {
-    std::cout << "lkk ==> here" << std::endl;
+    // std::cout << "lkk ==> here" << std::endl;
     //float, float16, float, float
     if (std::is_same<DX, float>::value && std::is_same<TW, float16>::value
     && std::is_same<DY, float>::value && std::is_same<TGEMM, float>::value) {
