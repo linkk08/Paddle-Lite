@@ -56,7 +56,11 @@ class XDNNContext {
     CHECK_EQ(cur_dev_id, devid)
         << "XPU context config device id is :" << devid
         << ",but we get current device id is : " << cur_dev_id;
-    if (true || (cur_dev_attr >= 300 && cur_dev_attr < 600)) { // kl3,暂时写死强制开启
+    bool is_xpu3 = false;
+    if(std::getenv("IS_XPU3")){
+        is_xpu3 = true;
+    }
+    if (is_xpu3 || (cur_dev_attr >= 300 && cur_dev_attr < 600)) { // kl3,暂时写死强制开启
       std::cout << "====use xdnn:kXPU3 new xdnn::Context"<< std::endl;
       rawcontext_ = new xdnn::Context(xdnn::kXPU3);
     } else {

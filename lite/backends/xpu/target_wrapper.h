@@ -151,11 +151,20 @@ class TargetWrapper<TARGET(kXPU)> {
     CHECK(xpu_runtime_ptr->xpu_l3_planner);
 
     int devid = -1;
-    uint64_t max_l3_size = 0;
     XPU_CALL(xpu_current_device(&devid));
-    XPU_CALL(xpu_device_get_attr(
-        &max_l3_size, XPUDeviceAttr(XPUATTR_MEM_L3_CAPACITY), devid));
+
+    uint64_t max_l3_size = 0;
+    if (std::getenv("MAX_L3_SIZE")) {
+        max_l3_size = std::atol(std::getenv("MAX_L3_SIZE"));
+        std::cout << "MAX_L3_SIZE: " << max_l3_size << std::endl;
+    } else {
+        XPU_CALL(xpu_device_get_attr(
+            &max_l3_size, XPUDeviceAttr(XPUATTR_MEM_L3_CAPACITY), devid));
+    }
+
+    std::cout << "xpu_local_l3_size:" << xpu_runtime_ptr->xpu_local_l3_size << std::endl;
     if (xpu_runtime_ptr->xpu_local_l3_size > max_l3_size) {
+      std::cout << "max_l3_size:" << max_l3_size << std::endl;
       xpu_runtime_ptr->xpu_local_l3_size = max_l3_size;
     }
     CHECK_LE(shared_l3_size, max_l3_size);

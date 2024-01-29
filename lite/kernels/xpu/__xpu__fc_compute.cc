@@ -18,10 +18,13 @@
 #include "lite/backends/xpu/target_wrapper.h"
 #include "lite/backends/xpu/xpu_header_sitter.h"
 #include "lite/core/op_registry.h"
+#include "cublasLt.h"
 namespace paddle {
 namespace lite {
 namespace kernels {
 namespace xpu {
+
+namespace xblas = baidu::xpu::xblas;
 
 template <typename TGEMM,
           typename TW,
@@ -196,7 +199,8 @@ void XPUFcCompute<TGEMM, TW, DX, DY, PType>::Run() {
   } else {
     weight_max_ptr = reinterpret_cast<float*>(xpu_quant_weight_.max_ptr_);
   }
-  if (local_quant_) {
+  if (local_quant_ && (ctx.GetRawContext()->dev().type() == xdnn::kXPU2)) {
+    std::cout << "lkk ==> not here" << std::endl;
     int64_t batch_size = input_dims[0];
     CHECK_GT(batch_size, 0) << "first dim shouldn't be zero";
     std::vector<int> m_lod(batch_size + 1);
@@ -227,7 +231,36 @@ void XPUFcCompute<TGEMM, TW, DX, DY, PType>::Run() {
         batch_size,
         m_lod);  // per channel weight_max
   } else {
-    r = xdnn::fc_fusion<DX, TW, DY, TGEMM>(
+    std::cout << "lkk ==> here" << std::endl;
+    //float, float16, float, float
+    if (std::is_same<DX, float>::value && std::is_same<TW, float16>::value
+    && std::is_same<DY, float>::value && std::is_same<TGEMM, float>::value) {
+        r = xblas::fc_fusion<DX, TW, DY, float16>(
+        ctx.GetRawContext(),                                       // ctx
+        param.input->template data<DX>(),                          // x
+        reinterpret_cast<const TW*>(xpu_quant_weight_.data_ptr_),  // w
+        param.output->template mutable_data<DY>(TARGET(kXPU)),     // y
+        m,                                                         // m
+        n,                                                         // n
+        k,                                                         // k
+        x_trans,                                                   // x_trans
+        true,                                                      // w_trans
+        input_max,                                                 // x_maxptr
+        weight_max_ptr,                                            // w_maxptr
+        output_max,                                                // y_maxptr
+        ldx,                                                       // ldx
+        ldw,                                                       // ldw
+        ldy,                                                       // ldy
+        param.alpha,                                               // alpha
+        0.0f,                                                      // beta
+        bias,                                                      // bias
+        act,                                                       // act
+        nullptr,
+        pc_weight_max_ptr, // per channel weight_max
+        0,
+        1);  
+    } else {
+        r = xdnn::fc_fusion<DX, TW, DY, TGEMM>(
         ctx.GetRawContext(),                                       // ctx
         param.input->template data<DX>(),                          // x
         reinterpret_cast<const TW*>(xpu_quant_weight_.data_ptr_),  // w
@@ -248,6 +281,7 @@ void XPUFcCompute<TGEMM, TW, DX, DY, PType>::Run() {
         bias,                                                      // bias
         act,                                                       // act
         pc_weight_max_ptr);  // per channel weight_max
+    }
   }
   CHECK_EQ(r, 0);
 }

@@ -155,7 +155,7 @@ void MatMulCompute<TGEMM, TW, DX, DY, PType>::Run() {
     && std::is_same<TGEMM, int16_t>::value) {
         //float, float, float, int16_t, 0
        // batch matmul
-        r = xblas::fc_batched<DX, TW, DY, TGEMM, 0>(
+        r = xblas::fc_batched<DX, TW, DY, TGEMM, float, 0>(
             ctx.GetRawContext(),                          /* context */
             mat_dim_a.batch_size_,                        /* batch_size */
             mat_dim_a.trans_,                             /* TransA */

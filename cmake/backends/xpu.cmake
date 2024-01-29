@@ -18,12 +18,13 @@ endif ()
 
 INCLUDE (ExternalProject)
 
-include_directories ("/home/disk1/chenzhonghua02/ernie-kl3/xhpc-ubuntu_x86_64/xblas/include")
+set(XHPC_PATH "/home/disk1/chenzhonghua02/ernie-kl3-centos/xhpc-bdcentos_x86_64")
+include_directories (${XHPC_PATH}/xblas/include)
 add_library (xpu_blas SHARED IMPORTED GLOBAL)
-set_property (TARGET xpu_blas PROPERTY IMPORTED_LOCATION "/home/disk1/chenzhonghua02/ernie-kl3/xhpc-ubuntu_x86_64/xblas/so/libxpu_blas.so")
-include_directories ("/home/disk1/chenzhonghua02/ernie-kl3/xhpc-ubuntu_x86_64/xfa/include")
+set_property (TARGET xpu_blas PROPERTY IMPORTED_LOCATION ${XHPC_PATH}/xblas/so/libxpu_blas.so)
+include_directories (${XHPC_PATH}/xfa/include)
 add_library (xpu_flash_attention SHARED IMPORTED GLOBAL)
-set_property (TARGET xpu_flash_attention PROPERTY IMPORTED_LOCATION "/home/disk1/chenzhonghua02/ernie-kl3/xhpc-ubuntu_x86_64/xfa/so/libxpu_flash_attention.so")
+set_property (TARGET xpu_flash_attention PROPERTY IMPORTED_LOCATION ${XHPC_PATH}/xfa/so/libxpu_flash_attention.so)
 
 set (XPU_SOURCE_DIR ${THIRD_PARTY_PATH}/xpu)
 set (XPU_DOWNLOAD_DIR ${XPU_SOURCE_DIR}/download)

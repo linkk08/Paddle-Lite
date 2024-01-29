@@ -291,17 +291,51 @@ void XPUMultiEncoderCompute::run_encoder(const T* in, T* out) {
     if (std::is_same<TGEMM, int8_t>::value) {
       CHECK_GT(fc_input_max_.size(), 0);
     }
-    int r = xft::transformer_encoder<T, TW, TGEMM>(
-        ctx.GetRawContext(),
-        in,
-        *(XPUMultiEncoderCompute::get_weight<TW>()),
-        out,
-        fc_input_max_,
-        fc_weight_max_,
-        arg_fc_bias_,
-        arg_ln_scale_,
-        arg_ln_bias_,
-        qkv_attn_param);
+    int r = -1;
+    auto device_type = ctx.GetRawContext()->dev().type();
+    switch (device_type) {
+      case xdnn::kXPU3: {
+        r = xft::transformer_encoder<xdnn::kXPU3, T, TW, TGEMM>(
+            ctx.GetRawContext(),
+            in,
+            *(XPUMultiEncoderCompute::get_weight<TW>()),
+            out,
+            fc_input_max_,
+            fc_weight_max_,
+            arg_fc_bias_,
+            arg_ln_scale_,
+            arg_ln_bias_,
+            qkv_attn_param);
+      } break;
+      case xdnn::kXPU2: {
+        r = xft::transformer_encoder<xdnn::kXPU2, T, TW, TGEMM>(
+            ctx.GetRawContext(),
+            in,
+            *(XPUMultiEncoderCompute::get_weight<TW>()),
+            out,
+            fc_input_max_,
+            fc_weight_max_,
+            arg_fc_bias_,
+            arg_ln_scale_,
+            arg_ln_bias_,
+            qkv_attn_param);
+      } break;
+      default: {
+        r = xdnn::transformer_encoder<T, TW, TGEMM>(
+            ctx.GetRawContext(),
+            in,
+            *(XPUMultiEncoderCompute::get_weight<TW>()),
+            out,
+            fc_input_max_,
+            fc_weight_max_,
+            arg_fc_bias_,
+            arg_ln_scale_,
+            arg_ln_bias_,
+            qkv_attn_param);
+      }
+
+      break;
+    }
     CHECK_EQ(r, 0);
   } else if (param.mask == nullptr) {
     // When no mask input, like VIT, create LOD to act as vsl.
@@ -343,17 +377,49 @@ void XPUMultiEncoderCompute::run_encoder(const T* in, T* out) {
     if (std::is_same<TGEMM, int8_t>::value) {
       CHECK_GT(fc_input_max_.size(), 0);
     }
-    int r = xft::transformer_encoder<T, TW, TGEMM>(
-        ctx.GetRawContext(),
-        in,
-        *(XPUMultiEncoderCompute::get_weight<TW>()),
-        out,
-        fc_input_max_,
-        fc_weight_max_,
-        arg_fc_bias_,
-        arg_ln_scale_,
-        arg_ln_bias_,
-        qkv_attn_param);
+    int r = -1;
+    auto device_type = ctx.GetRawContext()->dev().type();
+    switch (device_type) {
+      case xdnn::kXPU3: {
+        r = xft::transformer_encoder<xdnn::kXPU3, T, TW, TGEMM>(
+            ctx.GetRawContext(),
+            in,
+            *(XPUMultiEncoderCompute::get_weight<TW>()),
+            out,
+            fc_input_max_,
+            fc_weight_max_,
+            arg_fc_bias_,
+            arg_ln_scale_,
+            arg_ln_bias_,
+            qkv_attn_param);
+      } break;
+      case xdnn::kXPU2: {
+        r = xft::transformer_encoder<xdnn::kXPU2, T, TW, TGEMM>(
+            ctx.GetRawContext(),
+            in,
+            *(XPUMultiEncoderCompute::get_weight<TW>()),
+            out,
+            fc_input_max_,
+            fc_weight_max_,
+            arg_fc_bias_,
+            arg_ln_scale_,
+            arg_ln_bias_,
+            qkv_attn_param);
+      } break;
+      default: {
+        r = xdnn::transformer_encoder<T, TW, TGEMM>(
+            ctx.GetRawContext(),
+            in,
+            *(XPUMultiEncoderCompute::get_weight<TW>()),
+            out,
+            fc_input_max_,
+            fc_weight_max_,
+            arg_fc_bias_,
+            arg_ln_scale_,
+            arg_ln_bias_,
+            qkv_attn_param);
+      } break;
+    }
     CHECK_EQ(r, 0);
   } else {
     // no vsl
@@ -394,18 +460,52 @@ void XPUMultiEncoderCompute::run_encoder(const T* in, T* out) {
                                          roformer_embedding_.end());
     }
     qkv_attn_param.scale_of_hidden_units = param.ffn_hidden_dim_scale;
-    int r = xft::transformer_encoder<T, TW, TGEMM>(
-        ctx.GetRawContext(),
-        in,
-        *(XPUMultiEncoderCompute::get_weight<TW>()),
-        out,
-        fc_input_max_,
-        fc_weight_max_,
-        arg_fc_bias_,
-        arg_ln_scale_,
-        arg_ln_bias_,
-        qkv_attn_param,
-        param.mask->data<float>());
+    int r = -1;
+    auto device_type = ctx.GetRawContext()->dev().type();
+    switch (device_type) {
+      case xdnn::kXPU3: {
+        r = xft::transformer_encoder<xdnn::kXPU3, T, TW, TGEMM>(
+            ctx.GetRawContext(),
+            in,
+            *(XPUMultiEncoderCompute::get_weight<TW>()),
+            out,
+            fc_input_max_,
+            fc_weight_max_,
+            arg_fc_bias_,
+            arg_ln_scale_,
+            arg_ln_bias_,
+            qkv_attn_param,
+            param.mask->data<float>());
+      } break;
+      case xdnn::kXPU2: {
+        r = xft::transformer_encoder<xdnn::kXPU2, T, TW, TGEMM>(
+            ctx.GetRawContext(),
+            in,
+            *(XPUMultiEncoderCompute::get_weight<TW>()),
+            out,
+            fc_input_max_,
+            fc_weight_max_,
+            arg_fc_bias_,
+            arg_ln_scale_,
+            arg_ln_bias_,
+            qkv_attn_param,
+            param.mask->data<float>());
+      } break;
+      default: {
+        r = xdnn::transformer_encoder<T, TW, TGEMM>(
+            ctx.GetRawContext(),
+            in,
+            *(XPUMultiEncoderCompute::get_weight<TW>()),
+            out,
+            fc_input_max_,
+            fc_weight_max_,
+            arg_fc_bias_,
+            arg_ln_scale_,
+            arg_ln_bias_,
+            qkv_attn_param,
+            param.mask->data<float>());
+      } break;
+    }
     CHECK_EQ(r, 0);
   }
 }
